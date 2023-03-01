@@ -16,7 +16,7 @@ class Ship:
         self.screen_rect = ai_game.screen.get_rect() #Accessing the screen's rect attribute, allowing us to place the ship at the correct position etc. by gaining quantities associated witht the screen
 
         # Load the ship image and get its rect.
-        self.image = pygame.image.load('Project1_AlienInvasion/images/ship.bmp')
+        self.image = pygame.image.load('images/ship.bmp')
         self.rect = self.image.get_rect() #Getting the ship's 'rectangle' values so we can better position it 
         #get_rect is a pygame method. Using it on the image attribute of Ship 
 
