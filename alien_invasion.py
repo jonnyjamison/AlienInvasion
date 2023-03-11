@@ -34,21 +34,29 @@ class AlienInvasion:
         # of an AlienINvasion class to get values such as screen size (and these could be unique to each instance of the class)
         #I.e. - SHIP NEEDS TO ACCESS DATA WITHIN ALIENINVASION
 
+        self.bullets = pygame.sprite.Group() #A group behaves like a list with some extra functionality
 
         # Set the background color.
         self.bg_color = (230, 230, 230)
 
 
     def run_game(self):
-        """Start the main loop for the game."""
+        """Start the main loop for the game.""" #This is the 'MAIN LOOP' of the game - i.e. keep running
         while True: #This loop will run continually 
+            #Will therefore run all below methods continually
             #This 'event' loop will 'listen' for user inputs during game
             # Watch for keyboard and mouse events.
+
 
             self._check_events() #Starting with a '_' indicates a HELPER METHOD (will be defined outside of this method, in its own method below)
             #^Call this method via SELF._check_events
 
             self.ship.update() #The ships position will be updated after we have checked for keyboard events
+
+            self.bullets.update() #Updates the position of the bullets each pass through the loop 
+            #When you call update on a group, it automatically calls update for each sprite in group
+            #I.e. for each bullet we place in the 'bullets' group 
+
 
             # Redraw the screen during each pass through the loop.
             self._update_screen()
