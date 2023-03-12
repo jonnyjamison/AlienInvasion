@@ -2,6 +2,7 @@ import sys
 import pygame
 from settings import Settings
 from ship import Ship #Ship class from ship.py file 
+from bullet import Bullet
 #Importing Settings class from settings module file
 #Instead of adding a bunch of settings throughout code, this allows us to access it in one place
 
@@ -53,10 +54,7 @@ class AlienInvasion:
 
             self.ship.update() #The ships position will be updated after we have checked for keyboard events
 
-            self.bullets.update() #Updates the position of the bullets each pass through the loop 
-            #When you call update on a group, it automatically calls update for each sprite in group
-            #I.e. for each bullet we place in the 'bullets' group 
-
+            self._update_bullets()
 
             # Redraw the screen during each pass through the loop.
             self._update_screen()
@@ -88,6 +86,8 @@ class AlienInvasion:
             self.ship.moving_left = True
         elif event.key == pygame.K_q:
             sys.exit()
+        elif event.key == pygame.K_SPACE:
+            self._fire_bullet()
 
     def _check_keyup_events(self, event):
         """Respond to key releases."""
@@ -96,12 +96,41 @@ class AlienInvasion:
         elif event.key == pygame.K_LEFT:
             self.ship.moving_left = False
 
+    def _fire_bullet(self):
+        """Create a new bullet and add it to the bullets group."""
+        if len(self.bullets) < self.settings.bullets_allowed:
+            new_bullet = Bullet(self)
+            self.bullets.add(new_bullet) #adding to group of bullets using the 'add.' method
+            #This is similar to the append() method, but it is written specifically for pygame groups
+
+    def _update_bullets(self):
+        """Update position of bullets and get rid of old bullets."""
+        # Update bullet positions.
+
+        self.bullets.update() #Updates the position of the bullets each pass through the loop 
+        #When you call update on a group, it automatically calls update for each sprite in group
+        #I.e. for each bullet we place in the 'bullets' group 
+
+
+        # Get rid of bullets that have disappeared.
+        for bullet in self.bullets.copy(): #because we can't remove elements from a list during a running for-loop, we use a 'copy' to set up the for loop...
+            #... and then modify the actual bullets 
+            if bullet.rect.bottom <= 0: #if it has reached top of screen (y=0), remove bullet from bullets group 
+                self.bullets.remove(bullet)
+
+
     def _update_screen(self):
         """Update images on the screen, and flip to new screen"""
         #self.bg color was defined in __init__
         #As per notes, can acccess all self. methods within a class
         self.screen.fill(self.bg_color)
         self.ship.blitme()
+        for bullet in self.bullets.sprites(): #bullets.sprites method returns a list of all sprites in the group bullets. 
+            bullet.draw_bullet() #We loop through the sprites in bullets and call draw_bullet on each one
+            #draw_bullet is a method within the Bullet class
+
+        # Make the most recently drawn screen visible.
+        pygame.display.flip() #Will continually update display to show most recent positions of game 
 
 
 if __name__ == '__main__': #when a file is ran directly, its __name__ variable is set to __main__
