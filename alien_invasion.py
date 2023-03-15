@@ -3,6 +3,7 @@ import pygame
 from settings import Settings
 from ship import Ship #Ship class from ship.py file 
 from bullet import Bullet
+from alien import Alien
 #Importing Settings class from settings module file
 #Instead of adding a bunch of settings throughout code, this allows us to access it in one place
 
@@ -16,7 +17,9 @@ class AlienInvasion:
         pygame.init() #Initialises the background settings required for Pygame
 
         self.settings = Settings() #Brings Settings attributes into this instance
-        #for e.g, there is screen_height, screen_width in Settings Module. 
+        #for e.g, there is screen_height, screen_width in Settings Module.
+        # could change various settings here if we made the settings class have more inputs, but as it only has init, we 
+        # make the changes from within the settings module 
 
         #Using Settings attributes, we create a screen (using those settings)
         #Create the screen here, then update it using method below
@@ -30,31 +33,39 @@ class AlienInvasion:
 
         self.ship = Ship(self) #creating an instance of Ship (Ship class was imported from ship file above)
         #this allows us to access Ship's methods within the Alien Invasion class
-        #The (self) input arguement refers to the current instance of AlienInvasion and gives Ship access to the game's resouces, e.g. screen
+        #The (self) input arguement refers to the current instance of AlienInvasion and GIVES Ship ACCESS TO THE GAMES RESOURCES, e.g. screen
         #Ship's __init__ requires 2 inputs (self, ai_game) - this is because it needs access to the attributes...
         # of an AlienINvasion class to get values such as screen size (and these could be unique to each instance of the class)
         #I.e. - SHIP NEEDS TO ACCESS DATA WITHIN ALIENINVASION
 
         self.bullets = pygame.sprite.Group() #A group behaves like a list with some extra functionality
+        #Above is creating an empty group 
+        
+        self.aliens = pygame.sprite.Group()
+
+        self._create_fleet()
 
         # Set the background color.
         self.bg_color = (230, 230, 230)
 
 
     def run_game(self):
-        """Start the main loop for the game.""" #This is the 'MAIN LOOP' of the game - i.e. keep running
+        """Start the main loop for the game.""" #This is the 'MAIN LOOP' of the game - i.e. keep running. 
+            #It is a method of the AlienInvasion Class
         while True: #This loop will run continually 
             #Will therefore run all below methods continually
             #This 'event' loop will 'listen' for user inputs during game
             # Watch for keyboard and mouse events.
 
-
             self._check_events() #Starting with a '_' indicates a HELPER METHOD (will be defined outside of this method, in its own method below)
             #^Call this method via SELF._check_events
 
             self.ship.update() #The ships position will be updated after we have checked for keyboard events
+            #^Looks like the above as there is a self.ship = Ship(Self). I.e. the ship instance will have an update method. 
 
             self._update_bullets()
+
+            self._update_aliens()
 
             # Redraw the screen during each pass through the loop.
             self._update_screen()
@@ -76,7 +87,6 @@ class AlienInvasion:
                 self._check_keyup_events(event)
 
                 
-
     def _check_keydown_events(self, event): #Requires an event input to determine what button was pressed 
         """Respond to keypresses."""
         if event.key == pygame.K_RIGHT: #if right key         
@@ -111,13 +121,59 @@ class AlienInvasion:
         #When you call update on a group, it automatically calls update for each sprite in group
         #I.e. for each bullet we place in the 'bullets' group 
 
-
         # Get rid of bullets that have disappeared.
         for bullet in self.bullets.copy(): #because we can't remove elements from a list during a running for-loop, we use a 'copy' to set up the for loop...
             #... and then modify the actual bullets 
             if bullet.rect.bottom <= 0: #if it has reached top of screen (y=0), remove bullet from bullets group 
                 self.bullets.remove(bullet)
 
+    def _update_aliens(self):
+        """Check if the fleet is at an edge,then update the positions of all aliens in the fleet."""
+        self._check_fleet_edges()        
+        self.aliens.update() #update is being called on a group - will therefore upadte all of them at once 
+
+    def _create_fleet(self):
+        """Create the fleet of aliens."""
+        # Create an alien and find the number of aliens in a row.
+        # Spacing between each alien is equal to one alien width.
+        alien = Alien(self) #create an instance so we can access width etc. 
+        alien_width, alien_height = alien.rect.size
+        available_space_x = self.settings.screen_width - (2 * alien_width)
+        number_aliens_x = available_space_x // (2 * alien_width)
+
+        # Determine the number of rows of aliens that fit on the screen.
+        ship_height = self.ship.rect.height
+        available_space_y = (self.settings.screen_height - (3 * alien_height) - ship_height)
+        number_rows = available_space_y // (2 * alien_height)
+                
+        # Create the full fleet of aliens.
+        for row_number in range(number_rows):
+            for alien_number in range(number_aliens_x):
+                self._create_alien(alien_number, row_number)
+        
+
+    def _create_alien(self, alien_number, row_number):
+        # Create an alien and place it in the row.
+        alien = Alien(self)
+        alien_width, alien_height = alien.rect.size
+        alien.x = alien_width + 2 * alien_width * alien_number
+        alien.rect.x = alien.x
+        alien.rect.y = alien_height + 2 * alien.rect.height * row_number
+        self.aliens.add(alien) #Adding this to the alien group created in __init__
+
+    def _check_fleet_edges(self):
+        """Respond appropriately if any aliens have reached an edge."""
+        for alien in self.aliens.sprites(): #call check edges on each alien
+            if alien.check_edges(): #uses the check_edges method in the alien class, which either returns true or false
+                self._change_fleet_direction()
+                break
+
+    def _change_fleet_direction(self):
+        """Drop the entire fleet and change the fleet's direction."""
+        for alien in self.aliens.sprites(): #go through each of the aliens in the group
+                alien.rect.y += self.settings.fleet_drop_speed  #will drop each aliens vertical (y) position
+        self.settings.fleet_direction *= -1 #isnt part of for loop as we only want to change fleet direction once. Fleet direction is used
+        #by the alien's update method, so therefore only have to change it once, as self.alien uses self.settings 
 
     def _update_screen(self):
         """Update images on the screen, and flip to new screen"""
@@ -128,6 +184,8 @@ class AlienInvasion:
         for bullet in self.bullets.sprites(): #bullets.sprites method returns a list of all sprites in the group bullets. 
             bullet.draw_bullet() #We loop through the sprites in bullets and call draw_bullet on each one
             #draw_bullet is a method within the Bullet class
+
+        self.aliens.draw(self.screen) #draw requires one input arguement - the surface on which to draw the element
 
         # Make the most recently drawn screen visible.
         pygame.display.flip() #Will continually update display to show most recent positions of game 
