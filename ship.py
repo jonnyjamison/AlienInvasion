@@ -1,10 +1,13 @@
 import pygame
+from pygame.sprite import Sprite
 
-class Ship:
+class Ship(Sprite):
     """A class to manage the ship."""
 
     def __init__(self, ai_game):
         """Initialize the ship and set its starting position."""
+
+        super().__init__() #inherits methods etc. from Sprite
 
         #ai_game input gives Ship access to all the game resources defined in AlienInvasion
         #(AlienInvasion is a class defined in alien_invasion.py)
@@ -47,3 +50,8 @@ class Ship:
         self.screen.blit(self.image, self.rect) #'Draws' the ship at the position determined
         #'blit' essentially means 'draw on top of'
         #blit is an inbuilt method of the Pygame library in Python
+
+    def center_ship(self):
+        """Center the ship on the screen."""
+        self.rect.midbottom = self.screen_rect.midbottom
+        self.x = float(self.rect.x)

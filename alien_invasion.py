@@ -1,9 +1,13 @@
 import sys
+from time import sleep #use this so we can pause the game
 import pygame
 from settings import Settings
+from game_stats import GameStats
+from button import Button
 from ship import Ship #Ship class from ship.py file 
 from bullet import Bullet
 from alien import Alien
+from scoreboard import Scoreboard
 #Importing Settings class from settings module file
 #Instead of adding a bunch of settings throughout code, this allows us to access it in one place
 
@@ -27,9 +31,12 @@ class AlienInvasion:
         self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         self.settings.screen_width = self.screen.get_rect().width
         self.settings.screen_height = self.screen.get_rect().height
-
         #Notice how the above is called - SELF.SETTINGS.screen_height
         pygame.display.set_caption("Alien Invasion")
+
+        # Create an instance to store game statistics.
+        self.stats = GameStats(self)
+        self.sb = Scoreboard(self)
 
         self.ship = Ship(self) #creating an instance of Ship (Ship class was imported from ship file above)
         #this allows us to access Ship's methods within the Alien Invasion class
@@ -48,6 +55,9 @@ class AlienInvasion:
         # Set the background color.
         self.bg_color = (230, 230, 230)
 
+        # Make the Play button.
+        self.play_button = Button(self, "Play") #this creates a button with the label Play, but doesnt draw the button yet (this is done below)
+
 
     def run_game(self):
         """Start the main loop for the game.""" #This is the 'MAIN LOOP' of the game - i.e. keep running. 
@@ -60,12 +70,13 @@ class AlienInvasion:
             self._check_events() #Starting with a '_' indicates a HELPER METHOD (will be defined outside of this method, in its own method below)
             #^Call this method via SELF._check_events
 
-            self.ship.update() #The ships position will be updated after we have checked for keyboard events
-            #^Looks like the above as there is a self.ship = Ship(Self). I.e. the ship instance will have an update method. 
+            if self.stats.game_active:
+                self.ship.update() #The ships position will be updated after we have checked for keyboard events
+                #^Looks like the above as there is a self.ship = Ship(Self). I.e. the ship instance will have an update method. 
 
-            self._update_bullets()
+                self._update_bullets()
 
-            self._update_aliens()
+                self._update_aliens()
 
             # Redraw the screen during each pass through the loop.
             self._update_screen()
@@ -79,6 +90,10 @@ class AlienInvasion:
         for event in pygame.event.get(): #This function returns a list of events that have taken place since the last time this function was called
             if event.type == pygame.QUIT: #Any keyboard or mouse events will cause this loop to run
                 sys.exit()
+
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos() #gets position of mouse
+                self._check_play_button(mouse_pos) 
 
             elif event.type == pygame.KEYDOWN: #If key pressed DOWN
                 self._check_keydown_events(event)
@@ -136,6 +151,15 @@ class AlienInvasion:
         # If so, get rid of the bullet and the alien.
         collisions = pygame.sprite.groupcollide(
         self.bullets, self.aliens, True, True)
+
+        if collisions:
+            for aliens in collisions.values(): #loops through all collisions in dictionary 
+                self.stats.score += self.settings.alien_points * len(aliens)
+                self.stats.score += self.settings.alien_points
+                self.sb.prep_score() #check wether the collisions dicitonary exists, and if it does, add to score
+                #prep image is called to redraw the scoreboard
+                self.sb.check_high_score()
+
         #The above code compares all the positions of all bullets in self.bullers and aliens in self.aliens. 
         #If there is overlap, groupcollide() adds A KEY VALUE PAIR TO A DICTIONARY WHICH IT RETURNS
         #The two 'True' arugements tell Pygame to delete the bullets and aliens that have collided
@@ -144,6 +168,11 @@ class AlienInvasion:
             # Destroy existing bullets and create new fleet.
             self.bullets.empty() #get rid of any existing bullets using the EMPTY method
             self._create_fleet() #new fleet will appear as soon as current fleet is destroyed
+            self.settings.increase_speed()
+
+            # Increase level when there are no more aliens 
+            self.stats.level += 1
+            self.sb.prep_level()
 
     def _update_aliens(self):
         """Check if the fleet is at an edge,then update the positions of all aliens in the fleet."""
@@ -154,7 +183,10 @@ class AlienInvasion:
         if pygame.sprite.spritecollideany(self.ship, self.aliens): #spritecollideany takes 2 input argeuments - sprite and a group
             #Loops through the group and returns the first alien that collides with the ship 
             #If no collisions occur, the if block won' execute
-            print("Ship hit!!!")
+            self._ship_hit()
+
+        # Look for aliens hitting the bottom of the screen.
+        self._check_aliens_bottom()
 
     def _create_fleet(self):
         """Create the fleet of aliens."""
@@ -210,10 +242,74 @@ class AlienInvasion:
             #draw_bullet is a method within the Bullet class
 
         self.aliens.draw(self.screen) #draw requires one input arguement - the surface on which to draw the element
+        
+        # Draw the score information.
+        self.sb.show_score()
+
+        # Draw the play button if the game is inactive. Placed here so it is drawn on top of all other elements 
+        if not self.stats.game_active:
+            self.play_button.draw_button()
 
         # Make the most recently drawn screen visible.
         pygame.display.flip() #Will continually update display to show most recent positions of game 
 
+    def _ship_hit(self):
+        """Respond to the ship being hit by an alien."""
+        if self.stats.ships_left > 0: #checks to see if player is out of ships
+            # Decrement ships_left.
+            self.stats.ships_left -= 1
+            self.sb.prep_ships()
+            # Get rid of any remaining aliens and bullets.
+            self.aliens.empty()
+            self.bullets.empty()
+            # Create a new fleet and center the ship.
+            self._create_fleet()
+            self.ship.center_ship()
+            # Pause.
+            sleep(0.5)
+        else:
+            self.stats.game_active = False
+
+            pygame.mouse.set_visible(True)
+
+    def _check_aliens_bottom(self):
+        """Check if any aliens have reached the bottom of the screen."""
+        screen_rect = self.screen.get_rect()
+        for alien in self.aliens.sprites():
+            if alien.rect.bottom >= screen_rect.bottom:
+                # Treat this the same as if the ship got hit.
+                self._ship_hit()
+                break   #if one ship hits, dont need to check the rest 
+
+    def _check_play_button(self, mouse_pos):
+        """Start a new game when the player clicks Play."""
+        
+        button_clicked = self.play_button.rect.collidepoint(mouse_pos)
+
+        if button_clicked and not self.stats.game_active: #collide point is a rect method which checks if positions overlap
+            #^above code ensures that will only reset when game is not active 
+            
+            # Reset the game settings.
+            self.settings.initialize_dynamic_settings()
+
+            # Reset the game statistics.
+            self.stats.reset_stats()
+
+            self.sb.prep_score() #reset the score 
+            self.sb.prep_level()
+            self.sb.prep_ships()
+
+            # Hide the mouse cursor.
+            pygame.mouse.set_visible(False)
+
+            self.stats.game_active = True #game will begin 
+
+            # Get rid of any remaining aliens and bullets.
+            self.aliens.empty()
+            self.bullets.empty()
+            # Create a new fleet and center the ship.
+            self._create_fleet()
+            self.ship.center_ship()
 
 if __name__ == '__main__': #when a file is ran directly, its __name__ variable is set to __main__
     #when a file is imported as a MODULE, its __name__ is set to the file's name
