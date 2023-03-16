@@ -127,10 +127,34 @@ class AlienInvasion:
             if bullet.rect.bottom <= 0: #if it has reached top of screen (y=0), remove bullet from bullets group 
                 self.bullets.remove(bullet)
 
+        self._check_bullet_alien_collisions()
+
+    def _check_bullet_alien_collisions(self):
+        """Respond to bullet-alien collisions."""
+        # Remove any bullets and aliens that have collided.
+        # Check for any bullets that have hit aliens.
+        # If so, get rid of the bullet and the alien.
+        collisions = pygame.sprite.groupcollide(
+        self.bullets, self.aliens, True, True)
+        #The above code compares all the positions of all bullets in self.bullers and aliens in self.aliens. 
+        #If there is overlap, groupcollide() adds A KEY VALUE PAIR TO A DICTIONARY WHICH IT RETURNS
+        #The two 'True' arugements tell Pygame to delete the bullets and aliens that have collided
+
+        if not self.aliens: #if the aliens group is empty - an empty group evaluates to FALSE
+            # Destroy existing bullets and create new fleet.
+            self.bullets.empty() #get rid of any existing bullets using the EMPTY method
+            self._create_fleet() #new fleet will appear as soon as current fleet is destroyed
+
     def _update_aliens(self):
         """Check if the fleet is at an edge,then update the positions of all aliens in the fleet."""
         self._check_fleet_edges()        
-        self.aliens.update() #update is being called on a group - will therefore upadte all of them at once 
+        self.aliens.update() #update is being called on a group - will therefore update all of them at once 
+
+        # Look for alien-ship collisions.
+        if pygame.sprite.spritecollideany(self.ship, self.aliens): #spritecollideany takes 2 input argeuments - sprite and a group
+            #Loops through the group and returns the first alien that collides with the ship 
+            #If no collisions occur, the if block won' execute
+            print("Ship hit!!!")
 
     def _create_fleet(self):
         """Create the fleet of aliens."""
