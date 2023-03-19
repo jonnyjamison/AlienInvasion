@@ -1,4 +1,5 @@
-import pygame.font #lets pygame render text to the screen 
+import pygame.font 
+#lets pygame render text to the screen 
 
 class Button:
 
